@@ -1,0 +1,9 @@
+AI-Virtual-Friend/
+├── index.html
+├── style.css
+├── script.js
+├── avatar/
+│   ├── idle.png
+│   ├── blink.png
+│   └── smile.png
+└── README.md
