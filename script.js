@@ -1,60 +1,86 @@
-const chatBox = document.getElementById('chat-box');
+const chatContainer = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
 const sendBtn = document.getElementById('send-btn');
 const avatar = document.getElementById('avatar');
 
-// Basic avatar animation
-function blink() {
-    avatar.src = 'avatar/blink.png';
-    setTimeout(() => { avatar.src = 'avatar/idle.png'; }, 200);
-}
+let chatMemory = [];
 
-// Add message to chat
-function addMessage(text, sender) {
-    const msg = document.createElement('div');
-    msg.classList.add('message', sender);
-    msg.innerText = text;
-    chatBox.appendChild(msg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// Speak message
-function speak(text) {
-    const synth = window.speechSynthesis;
-    const utter = new SpeechSynthesisUtterance(text);
-    synth.speak(utter);
-}
-
-// AI response using OpenAI API
-async function getAIResponse(message) {
-    // Replace YOUR_API_KEY with your OpenAI API key
-    const apiKey = 'YOUR_API_KEY';
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
-            messages: [{role: "user", content: message}]
-        })
-    });
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-}
-
-// Send message
-sendBtn.addEventListener('click', async () => {
-    const message = userInput.value;
-    if (!message) return;
-
-    addMessage(message, 'user');
-    userInput.value = '';
-    blink();
-
-    const aiReply = await getAIResponse(message);
-    addMessage(aiReply, 'ai');
-    speak(aiReply);
+sendBtn.addEventListener('click', () => sendMessage());
+userInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendMessage();
 });
+
+function sendMessage() {
+  const message = userInput.value.trim();
+  if (!message) return;
+
+  appendMessage(message, 'user-message');
+  chatMemory.push({ role: 'user', content: message });
+  userInput.value = '';
+  
+  animateAvatar('thinking');
+  
+  getAIResponse(message).then(response => {
+    appendMessage(response, 'bot-message');
+    speak(response);
+    animateAvatar('happy');
+    chatMemory.push({ role: 'assistant', content: response });
+  });
+}
+
+function appendMessage(text, className) {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `chat-message ${className}`;
+  msgDiv.textContent = text;
+  chatContainer.appendChild(msgDiv);
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+// Text-to-Speech
+function speak(text) {
+  const synth = window.speechSynthesis;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
+  synth.speak(utter);
+}
+
+// Animate Avatar
+function animateAvatar(state) {
+  switch(state) {
+    case 'thinking':
+      avatar.src = 'avatar-thinking.png';
+      break;
+    case 'happy':
+      avatar.src = 'avatar-happy.png';
+      setTimeout(() => avatar.src = 'avatar-neutral.png', 1500);
+      break;
+    default:
+      avatar.src = 'avatar-neutral.png';
+  }
+}
+
+// OpenAI GPT API call
+async function getAIResponse(message) {
+  const API_KEY = 'YOUR_OPENAI_API_KEY';
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: chatMemory,
+        max_tokens: 150
+      })
+    });
+    
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
+  } catch (err) {
+    console.error(err);
+    return "Oops! Something went wrong.";
+  }
+}
